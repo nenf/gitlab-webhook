@@ -6,9 +6,9 @@ from app import app
 from bug_id_parser import parse_resolve_id, parse_refer_id
 from jira_ci import JiraCI
 from jira.exceptions import JIRAError
-from git_utils import git_clone, git_fetch, git_log, git_short_log
-from config import file_server_url, jira_url, jira_user, jira_password
+from git_utils import GitUtils, GitException
 from re import search
+from config import *
 
 
 @app.route('/', methods=['POST'])
@@ -23,35 +23,31 @@ def index():
 
     project_name = data["project"]["name"]
     repository_url = data["project"]["git_ssh_url"]
-    git_dir = data["project"]["name"]
+    git_dir = project_name
+
     try:
-        jira = JiraCI(jira_url, jira_user, jira_password)
+        jira = JiraCI(JIRA_SERVER, JIRA_USER, JIRA_PASSWORD)
     except JIRAError as e:
         return e.text, status.HTTP_400_BAD_REQUEST
 
-    res = git_clone(git_dir, repository_url)
-    if res["code"] != 0:
-        return res["message"], status.HTTP_400_BAD_REQUEST
+    try:
+        git = GitUtils()
+        git.clone(git_dir, repository_url)
+        git.fetch(git_dir)
+    except GitException as e:
+        return e.value, status.HTTP_400_BAD_REQUEST
 
-    res = git_fetch(git_dir)
-    if res["code"] != 0:
-        return res["message"], status.HTTP_400_BAD_REQUEST
-
-    commits = [commit["id"] for commit in data["commits"]]
-    for commit_id in commits:
-        res = git_log(git_dir, commit_id)
-        if res["code"] != 0:
-            return res["message"], status.HTTP_400_BAD_REQUEST
-        commit_message = res["message"]
-
-        res = git_short_log(git_dir, commit_id)
-        if res["code"] != 0:
-            return res["message"], status.HTTP_400_BAD_REQUEST
-        short_log = res["message"]
+    commits_id = [commit["id"] for commit in data["commits"]]
+    for commit_id in commits_id:
+        try:
+            commit_message = git.log(commit_id, git_dir)
+            short_log = git.short_log(commit_id, git_dir)
+        except GitException as e:
+            return e.value, status.HTTP_400_BAD_REQUEST
 
         resolve_id = parse_resolve_id(commit_message)
         refer_id = parse_refer_id(commit_message)
-        package_url = "{0}/{1}/{1}-{2}.zip".format(file_server_url, project_name, commit_id)
+        package_url = "{0}/{1}/{1}-{2}.zip".format(FILE_SERVER, project_name, commit_id)
         title_url = "{0}-{1}.zip".format(project_name, commit_id)
 
         for issue_id in resolve_id:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from jira import JIRA
 from jira.exceptions import JIRAError
-from sys import version_info
+from sys import version_info, stdout
 
 
 class JiraCI:
@@ -14,6 +14,10 @@ class JiraCI:
         else:
             options = {"server": jira_url}
         self.jira = JIRA(options, basic_auth=(login, password))
+
+    @staticmethod
+    def debug_jira(text):
+        stdout.write("[DEBUG JIRA]: {0}\n".format(text))
 
     def check_issue_exist(self, issue_id):
         try:
@@ -37,9 +41,9 @@ class JiraCI:
             comment = "{code}" + comment + "{code}"
         if not self.check_comment_exist(issue_id, comment):
             self.jira.add_comment(jira_issue, comment)
-            print "[DEBUG JIRA] : Comment (for {0}) : {1} added".format(issue_id, comment.rstrip())
+            self.debug_jira("Comment (for {0}) : {1} added".format(issue_id, comment.rstrip()))
         else:
-            print "[DEBUG JIRA] : Comment (for {0}) : {1} already exist".format(issue_id, comment.rstrip())
+            self.debug_jira("Comment (for {0}) : {1} already exist".format(issue_id, comment.rstrip()))
 
     def assign_issue(self, issue_id, assigned_user):
         jira_issue = self.jira.issue(issue_id)
@@ -49,9 +53,9 @@ class JiraCI:
         url_object = {"url": url, "title": title}
         if not self.check_link_exist(issue_id, title, url):
             self.jira.add_remote_link(issue_id, url_object)
-            print "[DEBUG JIRA] : Link (for {0}) : {1} added".format(issue_id, url)
+            self.debug_jira("Link (for {0}) : {1} added".format(issue_id, url))
         else:
-            print "[DEBUG JIRA] : Link (for {0}) : {1} already exist".format(issue_id, url)
+            self.debug_jira("Link (for {0}) : {1} already exist".format(issue_id, url))
 
     def resolve_issue_to_reporter(self, issue_id):
         reporter = self.get_reporter_issue(issue_id)
@@ -79,9 +83,9 @@ class JiraCI:
         if self.check_issue_exist(issue_id):
             if not self.check_issue_state(issue_id, "resolved"):
                 self.resolve_issue_to_reporter(issue_id)
-                print "[DEBUG JIRA] : Issue {0} already resolve".format(issue_id)
+                self.debug_jira("Issue {0} already resolve".format(issue_id))
             else:
-                print "[DEBUG JIRA] : Issue {0} resolved".format(issue_id)
+                self.debug_jira("Issue {0} resolved".format(issue_id))
             self.add_link(issue_id, title_url, package_url)
             self.add_comment(issue_id, short_commit_message, formatting=True)
 
