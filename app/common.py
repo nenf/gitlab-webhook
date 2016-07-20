@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 from subprocess import Popen, PIPE, STDOUT
-from sys import stderr, stdout
+from sys import stdout
 from shlex import split as arg_split
 
 
-def debug_print(text):
-    stdout.write("DEBUG: {0}\n".format(text))
+def debug(text):
+    stdout.write("[DEBUG]: {0}\n".format(text))
 
 
-def die(text, exit_code=1):
-    stderr.write("ERROR: {0}\n".format(text))
-    exit(exit_code)
-
-
-def console(command):
+def console(command, stream=False):
     ret = None
     out = None
-    debug_print(command)
+    debug(command)
     try:
         process = Popen(arg_split(command), stdout=PIPE, stderr=STDOUT)
+        if stream:
+            for line in iter(process.stdout.readline, b""):
+                print line.rstrip()
         process.wait()
     except Exception as e:
         ret = e.args[0]
@@ -27,7 +25,5 @@ def console(command):
         ret = process.returncode
         out = process.stdout.read()
     finally:
-        if ret != 0:
-            debug_print("Return code: {0}".format(ret))
-            debug_print("Out: {0}\n".format(out))
         return {"code": ret, "message": out}
+
